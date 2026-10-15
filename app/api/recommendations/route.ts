@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const fieldMask = ["places.id", "places.displayName", "places.formattedAddress", "places.location", "places.rating", "places.userRatingCount", "places.googleMapsUri", "places.websiteUri", "places.primaryTypeDisplayName", "places.types", "places.priceLevel", "places.priceRange"];
+    const fieldMask = ["places.id", "places.displayName", "places.formattedAddress", "places.location", "places.rating", "places.userRatingCount", "places.googleMapsUri", "places.websiteUri", "places.primaryTypeDisplayName", "places.types", "places.priceLevel", "places.priceRange", "places.photos"];
     if (preference === "vegetarian") fieldMask.push("places.servesVegetarianFood");
 
     const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
         "X-Goog-FieldMask": fieldMask.join(","),
       },
       body: JSON.stringify({
-        includedTypes: ["restaurant", "cafe"],
+        includedTypes: ["restaurant", "cafe", "bakery", "fast_food_restaurant", "food_court", "meal_takeaway", "meal_delivery", "dessert_shop", "juice_shop", "coffee_shop"],
         maxResultCount: 20,
         rankPreference: "POPULARITY",
         locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius } },
@@ -65,6 +65,10 @@ export async function POST(request: NextRequest) {
       priceLevel: place.priceLevel || "",
       priceRange: place.priceRange || null,
       servesVegetarianFood: place.servesVegetarianFood === true,
+      photo: place.photos?.[0] ? {
+        name: place.photos[0].name || "",
+        attributions: (place.photos[0].authorAttributions || []).map((author: any) => ({ displayName: author.displayName || "", uri: author.uri || "" })),
+      } : null,
     })).filter((place: any) => Number.isFinite(place.location.lat) && Number.isFinite(place.location.lng));
     return NextResponse.json({ places }, { headers: { "cache-control": "no-store" } });
   } catch {
