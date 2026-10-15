@@ -32,26 +32,49 @@ export async function POST(request: NextRequest) {
     const fieldMask = ["places.id", "places.displayName", "places.formattedAddress", "places.location", "places.rating", "places.userRatingCount", "places.googleMapsUri", "places.websiteUri", "places.primaryTypeDisplayName", "places.types", "places.priceLevel", "places.priceRange", "places.photos"];
     if (preference === "vegetarian") fieldMask.push("places.servesVegetarianFood");
 
-    const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": fieldMask.join(","),
-      },
-      body: JSON.stringify({
-        includedTypes: ["restaurant", "cafe", "bakery", "fast_food_restaurant", "food_court", "meal_takeaway", "meal_delivery", "dessert_shop", "juice_shop", "coffee_shop"],
-        maxResultCount: 20,
-        rankPreference: "POPULARITY",
-        locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius } },
-      }),
-      signal: AbortSignal.timeout(12000),
-    });
-    if (!response.ok) {
+    const typeGroups = [
+      ["restaurant", "cafe"],
+      ["fast_food_restaurant", "food_court", "meal_takeaway", "meal_delivery"],
+      ["bakery", "dessert_shop", "juice_shop", "coffee_shop"],
+    ];
+
+    const searchResponses = await Promise.all(typeGroups.map(async (includedTypes) => {
+      try {
+        const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            "X-Goog-Api-Key": apiKey,
+            "X-Goog-FieldMask": fieldMask.join(","),
+          },
+          body: JSON.stringify({
+            includedTypes,
+            maxResultCount: 20,
+            rankPreference: "DISTANCE",
+            locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius } },
+          }),
+          signal: AbortSignal.timeout(12000),
+        });
+        if (!response.ok) return null;
+        return await response.json();
+      } catch {
+        return null;
+      }
+    }));
+
+    const successfulSearches = searchResponses.filter((result): result is { places?: any[] } => result !== null);
+    if (!successfulSearches.length) {
       return jsonError("Google Places could not complete the search. Check the API key, billing, and Places API access.", 502);
     }
-    const result = await response.json();
-    const places = (result.places || []).map((place: any) => ({
+
+    const uniqueGooglePlaces = new Map<string, any>();
+    for (const result of successfulSearches) {
+      for (const place of result.places || []) {
+        if (place.id && !uniqueGooglePlaces.has(place.id)) uniqueGooglePlaces.set(place.id, place);
+      }
+    }
+
+    const places = [...uniqueGooglePlaces.values()].map((place: any) => ({
       id: place.id,
       name: place.displayName?.text || "Nearby eatery",
       address: place.formattedAddress || "Singapore",
