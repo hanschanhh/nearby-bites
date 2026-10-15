@@ -10,12 +10,15 @@ export async function POST(request: NextRequest) {
   const apiKey = process.env.GOOGLE_PLACES_API_KEY;
   if (!apiKey) return jsonError("The site owner must add the Google Places API key before live search can run.", 503);
 
-  let input: { lat?: unknown; lng?: unknown; radius?: unknown };
+  let input: { lat?: unknown; lng?: unknown; radius?: unknown; preference?: unknown };
   try {
     input = await request.json();
   } catch {
     return jsonError("Invalid search request.", 400);
   }
+
+  const preference = typeof input.preference === "string" ? input.preference : "all";
+  if (!["all", "vegetarian", "nonspicy", "nonfried"].includes(preference)) return jsonError("Invalid food preference.", 400);
 
   const lat = Number(input.lat);
   const lng = Number(input.lng);
@@ -26,12 +29,15 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const fieldMask = ["places.id", "places.displayName", "places.formattedAddress", "places.location", "places.rating", "places.userRatingCount", "places.googleMapsUri", "places.websiteUri", "places.primaryTypeDisplayName", "places.types", "places.priceLevel", "places.priceRange"];
+    if (preference === "vegetarian") fieldMask.push("places.servesVegetarianFood");
+
     const response = await fetch("https://places.googleapis.com/v1/places:searchNearby", {
       method: "POST",
       headers: {
         "content-type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.websiteUri,places.primaryTypeDisplayName,places.types,places.priceLevel,places.priceRange",
+        "X-Goog-FieldMask": fieldMask.join(","),
       },
       body: JSON.stringify({
         includedTypes: ["restaurant", "cafe"],
@@ -58,6 +64,7 @@ export async function POST(request: NextRequest) {
       types: place.types || [],
       priceLevel: place.priceLevel || "",
       priceRange: place.priceRange || null,
+      servesVegetarianFood: place.servesVegetarianFood === true,
     })).filter((place: any) => Number.isFinite(place.location.lat) && Number.isFinite(place.location.lng));
     return NextResponse.json({ places }, { headers: { "cache-control": "no-store" } });
   } catch {
