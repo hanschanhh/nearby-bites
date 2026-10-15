@@ -8,9 +8,11 @@ const errorJson = (error: string, status: number) =>
 
 type ReviewAuthor = { displayName?: string; uri?: string };
 type Review = {
+  rating?: number;
   text?: { text?: string };
   originalText?: { text?: string };
   authorAttribution?: ReviewAuthor;
+  relativePublishTimeDescription?: string;
   googleMapsUri?: string;
 };
 
@@ -74,6 +76,14 @@ export async function POST(request: NextRequest) {
       category: place.primaryTypeDisplayName?.text || "",
       editorialSummary: place.editorialSummary?.text || "",
       reviewCount: reviews.length,
+      reviews: reviews.map((review) => ({
+        rating: typeof review.rating === "number" ? review.rating : null,
+        text: review.text?.text || review.originalText?.text || "",
+        authorName: review.authorAttribution?.displayName || "Google Maps user",
+        authorUri: review.authorAttribution?.uri || "",
+        relativePublishTimeDescription: review.relativePublishTimeDescription || "",
+        googleMapsUri: review.googleMapsUri || "",
+      })),
     }, { headers: { "cache-control": "no-store" } });
   } catch {
     return errorJson("The review request timed out. Please try again.", 502);
