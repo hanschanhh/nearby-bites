@@ -102,6 +102,9 @@ export const page = `<!doctype html>
       }
       return mapPromise;
     }
+    ensureMap().then(ok=>{
+      if(ok)mapHelp.textContent="Choose an area to place a pin, or search to see nearby places.";
+    }).catch(()=>{});
     function setMode(mode){
       locationMode=mode;
       document.querySelector("#gps").classList.toggle("active",mode==="gps");
