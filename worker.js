@@ -164,26 +164,44 @@ export const page = `<!doctype html>
         const spend=spendEstimate(place.priceRange);
         const profile=[place.category,price].filter(Boolean).join(" · ");
         const gmaps=place.googleMapsUri||"https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(place.name+" "+place.address);
-        return '<article class="place"><div class="place-top"><h3>'+escapeHtml(place.name)+'</h3><span class="rank">PICK 0'+(index+1)+'</span></div>'+category+'<p class="place-address">'+escapeHtml(place.address||"Singapore")+'</p><div class="stats"><span class="stat"><strong>'+place.distanceKm.toFixed(1)+' km</strong> away</span>'+rating+(price?'<span class="stat"><strong>'+price+'</strong></span>':'')+'</div><div class="food-context"><b>Google listing:</b> '+escapeHtml(profile||"Food venue")+'. '+escapeHtml(notes[preference])+'</div>'+(spend?'<div class="food-context"><b>Approx. spend:</b> '+escapeHtml(spend)+' <span class="spend-note">(midpoint of Google’s listed price range)</span></div>':'<div class="food-context"><b>Approx. spend:</b> amount not listed by Google; price level '+escapeHtml(price||"unavailable")+'</div>')+'<div class="dish-results" id="dish-'+escapeHtml(place.id)+'">Loading Google review dish mentions…</div><div class="place-bottom">'+(place.websiteUri?'<a class="directions" href="'+escapeHtml(place.websiteUri)+'" target="_blank" rel="noreferrer">Website ↗</a>':'<span class="unverified">Google review insights</span>')+'<a class="directions" href="'+escapeHtml(gmaps)+'" target="_blank" rel="noreferrer">Google Maps ↗</a></div></article>';
+        return '<article class="place"><div class="place-top"><h3>'+escapeHtml(place.name)+'</h3><span class="rank">PICK 0'+(index+1)+'</span></div>'+category+'<p class="place-address">'+escapeHtml(place.address||"Singapore")+'</p><div class="stats"><span class="stat"><strong>'+place.distanceKm.toFixed(1)+' km</strong> away</span>'+rating+(price?'<span class="stat"><strong>'+price+'</strong></span>':'')+'</div><div class="food-context"><b>Google listing:</b> '+escapeHtml(profile||"Food venue")+'. '+escapeHtml(notes[preference])+'</div>'+(spend?'<div class="food-context"><b>Approx. spend:</b> '+escapeHtml(spend)+' <span class="spend-note">(midpoint of Google’s listed price range)</span></div>':'<div class="food-context"><b>Approx. spend:</b> amount not listed by Google; price level '+escapeHtml(price||"unavailable")+'</div>')+'<div class="dish-results" id="dish-'+escapeHtml(place.id)+'">Loading Google review dish mentions…</div><div class="review-results" id="reviews-'+escapeHtml(place.id)+'">Loading Google reviews…</div><div class="place-bottom">'+(place.websiteUri?'<a class="directions" href="'+escapeHtml(place.websiteUri)+'" target="_blank" rel="noreferrer">Website ↗</a>':'<span class="unverified">Google review insights</span>')+'<a class="directions" href="'+escapeHtml(gmaps)+'" target="_blank" rel="noreferrer">Google Maps ↗</a></div></article>';
       }).join("");
       shortlist.forEach(place=>loadDishIdeas(place.id));
       document.querySelector("#result-summary").textContent="Ranked by rating, then distance. The shortlist samples from the strongest nearby candidates; rotate for alternatives.";
       rotate.classList.toggle("show",ranked.length>3);
     }
     const dishCache=new Map();
+    function reviewMarkup(review,label){
+      const score=typeof review.rating==="number"?Number(review.rating).toFixed(1)+" / 5 stars":"Rating unavailable";
+      const author=review.authorUri?'<a href="'+escapeHtml(review.authorUri)+'" target="_blank" rel="noreferrer">'+escapeHtml(review.authorName)+'</a>':escapeHtml(review.authorName||"Google Maps user");
+      const source=review.googleMapsUri?'<a href="'+escapeHtml(review.googleMapsUri)+'" target="_blank" rel="noreferrer">View on Google Maps</a>':"";
+      const reviewText=review.text||"No written review text.";
+      return '<article class="review-card"><div class="review-meta"><span class="review-stars">★ '+score+'</span><span>'+author+'</span><span>'+escapeHtml(review.relativePublishTimeDescription||"")+'</span><span>'+label+'</span></div><div class="review-text">'+escapeHtml(reviewText)+'</div>'+source+'</article>';
+    }
+    function renderReviews(result){
+      const reviews=Array.isArray(result.reviews)?result.reviews.slice(0,5):[];
+      if(!reviews.length)return '<div class="review-heading">Google reviews</div><div>No reviews were returned for this place.</div>';
+      const rated=reviews.filter(review=>typeof review.rating==="number");
+      const lowest=rated.length?rated.reduce((worst,review)=>review.rating<worst.rating?review:worst):null;
+      const comparison=lowest?'<div class="review-comparison"><b>Lowest-rated among these reviews</b>'+reviewMarkup(lowest,"Comparison")+'</div>':"";
+      return '<div class="review-heading">Google reviews · most relevant first</div>'+reviews.map((review,index)=>reviewMarkup(review,"Review "+(index+1))).join("")+comparison+'<div class="review-policy">Google returns up to five reviews, ordered by relevance. The comparison is the lowest-rated of those returned, not necessarily the lowest-rated review overall. Reviews are user-submitted.</div>';
+    }
     async function loadDishIdeas(placeId){
       const target=document.querySelector("#dish-"+CSS.escape(placeId));
-      if(!target)return;
+      const reviewTarget=document.querySelector("#reviews-"+CSS.escape(placeId));
+      if(!target||!reviewTarget)return;
       target.textContent="Loading Google review dish mentions…";
+      reviewTarget.textContent="Loading Google reviews…";
       try{
         let result=dishCache.get(placeId);
         if(!result){const response=await fetch("/api/place-details",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({placeId})});result=await response.json();if(!response.ok)throw new Error(result.error||"Could not load review mentions.");dishCache.set(placeId,result);}
+        reviewTarget.innerHTML=renderReviews(result);
         if(result.dishMentions&&result.dishMentions.length){
-          target.innerHTML="<b>Review dish mentions</b><ul>"+result.dishMentions.map(item=>{const authors=(item.authors||[]).map(author=>author.uri?'<a href="'+escapeHtml(author.uri)+'" target="_blank" rel="noreferrer">'+escapeHtml(author.name)+'</a>':escapeHtml(author.name)).join(", ");return "<li><b>"+escapeHtml(item.name)+"</b> · "+item.mentions+" mention"+(item.mentions===1?"":"s")+(authors?" · "+authors:"")+"</li>";}).join("")+"</ul><div>Names are extracted from up to five Google reviews, not verified menu items. <a href='"+escapeHtml(result.reviewsUri||result.googleMapsUri||"#")+"' target='_blank' rel='noreferrer'>View Google reviews</a></div>"+(result.editorialSummary?'<div style="margin-top:6px"><b>About this place:</b> '+escapeHtml(result.editorialSummary)+'</div>':"");
+          target.innerHTML="<b>Review dish mentions</b><ul>"+result.dishMentions.map(item=>{const authors=(item.authors||[]).map(author=>author.uri?'<a href="'+escapeHtml(author.uri)+'" target='_blank' rel='noreferrer'>"+escapeHtml(author.name)+"</a>':escapeHtml(author.name)).join(", ");return "<li><b>"+escapeHtml(item.name)+"</b> · "+item.mentions+" mention"+(item.mentions===1?"":"s")+(authors?" · "+authors:"")+"</li>";}).join("")+"</ul><div>Names are extracted from up to five Google reviews, not verified menu items. <a href='"+escapeHtml(result.reviewsUri||result.googleMapsUri||"#")+"' target='_blank' rel='noreferrer'>View Google reviews</a></div>"+(result.editorialSummary?'<div style="margin-top:6px"><b>About this place:</b> '+escapeHtml(result.editorialSummary)+'</div>':"");
         }else{
           target.innerHTML="No clear dish names were found in the available reviews. <a href='"+escapeHtml(result.reviewsUri||result.googleMapsUri||"#")+"' target='_blank' rel='noreferrer'>Read Google reviews</a>"+(result.editorialSummary?'<div style="margin-top:6px"><b>About this place:</b> '+escapeHtml(result.editorialSummary)+'</div>':"");
         }
-      }catch(error){target.textContent="Review details could not be loaded: "+error.message;}
+      }catch(error){target.textContent="Review details could not be loaded: "+error.message;reviewTarget.textContent="Google reviews could not be loaded.";}
     }
     async function runSearch(){
       proceed.disabled=true;proceed.textContent="Finding nearby places…";statusBox.className="status";
