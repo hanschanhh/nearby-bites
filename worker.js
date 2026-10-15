@@ -76,12 +76,11 @@ export const page = `<!doctype html>
     function distanceKm(a,b){const rad=x=>x*Math.PI/180,dLat=rad(b.lat-a.lat),dLng=rad(b.lng-a.lng),v=Math.sin(dLat/2)**2+Math.cos(rad(a.lat))*Math.cos(rad(b.lat))*Math.sin(dLng/2)**2;return 6371*2*Math.atan2(Math.sqrt(v),Math.sqrt(1-v));}
     function priceText(level){return ({PRICE_LEVEL_INEXPENSIVE:"$",PRICE_LEVEL_MODERATE:"$$",PRICE_LEVEL_EXPENSIVE:"$$$",PRICE_LEVEL_VERY_EXPENSIVE:"$$$$"})[level]||"";}
     function mapUnavailable(){document.querySelector("#mapCanvas").hidden=true;fallback.hidden=false;mapHelp.textContent="Add the browser Maps key in Vercel to use the map pin and map markers.";}
-    function updateOriginMarker(){if(!mapInstance||!currentOrigin)return;if(originMarker)originMarker.setMap(null);originMarker=new google.maps.Marker({map:mapInstance,position:currentOrigin,title:locationMode==="gps"?"Your location":"Selected location",icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#4285f4",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});}
+    function updateOriginMarker(){if(!mapInstance||!currentOrigin)return;if(originMarker)originMarker.setMap(null);originMarker=new google.maps.Marker({map:mapInstance,position:currentOrigin,draggable:locationMode==="area",title:locationMode==="gps"?"Your location":"Selected location",icon:{path:google.maps.SymbolPath.CIRCLE,scale:8,fillColor:"#4285f4",fillOpacity:1,strokeColor:"#fff",strokeWeight:2}});if(locationMode==="area")originMarker.addListener("dragend",event=>{if(event.latLng)setSelectedLocation({lat:event.latLng.lat(),lng:event.latLng.lng()});});}
     function setSelectedLocation(point){currentOrigin=point;updateOriginMarker();mapHelp.textContent="Pin selected. Drag it or tap elsewhere on the map to move it.";document.querySelector("#locationHint").textContent="Selected map pin will be used for this search.";}
     function initializeMap(){
       mapInstance=new google.maps.Map(document.querySelector("#mapCanvas"),{center:{lat:1.3521,lng:103.8198},zoom:12,mapTypeControl:false,streetViewControl:false,fullscreenControl:true});
       mapInstance.addListener("click",event=>{if(locationMode!=="area"||!event.latLng)return;setSelectedLocation({lat:event.latLng.lat(),lng:event.latLng.lng()});});
-      mapInstance.addListener("click",()=>{});
     }
     window.nearbyBitesMapReady=function(){initializeMap();if(window.__nearbyBitesMapResolve)window.__nearbyBitesMapResolve(true);};
     function ensureMap(){
