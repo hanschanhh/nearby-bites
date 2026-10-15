@@ -31,12 +31,12 @@ export async function POST(request: NextRequest) {
       headers: {
         "content-type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.googleMapsUri",
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.websiteUri,places.primaryTypeDisplayName,places.types,places.priceLevel",
       },
       body: JSON.stringify({
         includedTypes: ["restaurant", "cafe"],
         maxResultCount: 20,
-        rankPreference: "DISTANCE",
+        rankPreference: "POPULARITY",
         locationRestriction: { circle: { center: { latitude: lat, longitude: lng }, radius } },
       }),
       signal: AbortSignal.timeout(12000),
@@ -46,11 +46,17 @@ export async function POST(request: NextRequest) {
     }
     const result = await response.json();
     const places = (result.places || []).map((place: any) => ({
+      id: place.id,
       name: place.displayName?.text || "Nearby eatery",
       address: place.formattedAddress || "Singapore",
       location: { lat: place.location?.latitude, lng: place.location?.longitude },
       rating: place.rating || null,
       count: place.userRatingCount || null,
+      googleMapsUri: place.googleMapsUri || "",
+      websiteUri: place.websiteUri || "",
+      category: place.primaryTypeDisplayName?.text || "",
+      types: place.types || [],
+      priceLevel: place.priceLevel || "",
     })).filter((place: any) => Number.isFinite(place.location.lat) && Number.isFinite(place.location.lng));
     return NextResponse.json({ places }, { headers: { "cache-control": "no-store" } });
   } catch {
