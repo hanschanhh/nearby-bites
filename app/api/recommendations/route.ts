@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
       headers: {
         "content-type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.websiteUri,places.primaryTypeDisplayName,places.types,places.priceLevel",
+        "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.googleMapsUri,places.websiteUri,places.primaryTypeDisplayName,places.types,places.priceLevel,places.priceRange",
       },
       body: JSON.stringify({
         includedTypes: ["restaurant", "cafe"],
@@ -57,6 +57,7 @@ export async function POST(request: NextRequest) {
       category: place.primaryTypeDisplayName?.text || "",
       types: place.types || [],
       priceLevel: place.priceLevel || "",
+      priceRange: place.priceRange || null,
     })).filter((place: any) => Number.isFinite(place.location.lat) && Number.isFinite(place.location.lng));
     return NextResponse.json({ places }, { headers: { "cache-control": "no-store" } });
   } catch {
