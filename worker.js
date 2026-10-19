@@ -196,7 +196,7 @@ export const page = `<!doctype html>
     function renderHours(result){
       if(result.businessStatus==="CLOSED_PERMANENTLY")return "<b>Hours today:</b> Permanently closed";
       if(result.businessStatus==="CLOSED_TEMPORARILY")return "<b>Hours today:</b> Temporarily closed";
-      if(result.closedToday===true)return "<b>Hours today:</b> Closed today"+(result.todayHours?" · "+escapeHtml(result.todayHours.replace(/^\w+:\s*/, "")):"");
+      if(result.closedToday===true)return "<b>Hours today:</b> Closed today";
       const state=result.openNow===true?"Open now":result.openNow===false?"Closed now":"";
       const hours=result.todayHours||"";
       if(!hours&&!state)return "Opening hours are not listed by Google.";
