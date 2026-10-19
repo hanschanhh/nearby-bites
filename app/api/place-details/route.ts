@@ -61,15 +61,32 @@ export async function POST(request: NextRequest) {
     const response = await fetch("https://places.googleapis.com/v1/places/" + encodeURIComponent(placeId), {
       headers: {
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "reviews,googleMapsUri,googleMapsLinks.reviewsUri,websiteUri,primaryTypeDisplayName,editorialSummary",
+        "X-Goog-FieldMask": "reviews,googleMapsUri,googleMapsLinks.reviewsUri,websiteUri,primaryTypeDisplayName,editorialSummary,businessStatus,currentOpeningHours,regularOpeningHours",
       },
       signal: AbortSignal.timeout(12000),
     });
     if (!response.ok) return errorJson("Google Places could not load reviews for this place.", 502);
     const place = await response.json();
     const reviews: Review[] = Array.isArray(place.reviews) ? place.reviews : [];
+    const currentHours = place.currentOpeningHours || null;
+    const regularHours = place.regularOpeningHours || null;
+    const todayName = new Intl.DateTimeFormat("en-US", { weekday: "long", timeZone: "Asia/Singapore" }).format(new Date());
+    const todayIndex = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(todayName);
+    const hoursForToday = currentHours || regularHours;
+    const hasHoursData = Array.isArray(hoursForToday?.periods);
+    const openPeriods = hasHoursData ? hoursForToday.periods.filter((period: any) => period.open?.day === todayIndex) : [];
+    const closedToday = place.businessStatus === "CLOSED_PERMANENTLY" || place.businessStatus === "CLOSED_TEMPORARILY"
+      ? true
+      : hasHoursData ? openPeriods.length === 0 : null;
+    const todayHours = (currentHours?.weekdayDescriptions || regularHours?.weekdayDescriptions || [])
+      .find((description: string) => description.toLowerCase().startsWith(todayName.toLowerCase() + ":")) || "";
     return NextResponse.json({
       dishMentions: extractDishMentions(reviews),
+      businessStatus: place.businessStatus || "",
+      todayName,
+      todayHours,
+      closedToday,
+      openNow: typeof currentHours?.openNow === "boolean" ? currentHours.openNow : null,
       reviewsUri: place.googleMapsLinks?.reviewsUri || "",
       googleMapsUri: place.googleMapsUri || "",
       websiteUri: place.websiteUri || "",
