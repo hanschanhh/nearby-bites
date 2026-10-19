@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
   try {
     const fieldMask = ["places.id", "places.displayName", "places.formattedAddress", "places.location", "places.rating", "places.userRatingCount", "places.googleMapsUri", "places.websiteUri", "places.primaryTypeDisplayName", "places.types", "places.priceLevel", "places.priceRange", "places.photos"];
     if (preference === "vegetarian") fieldMask.push("places.servesVegetarianFood");
+    if (preference === "vegan") fieldMask.push("places.servesVeganFood");
 
     const typeGroups = [
       ["restaurant", "cafe"],
@@ -88,6 +89,7 @@ export async function POST(request: NextRequest) {
       priceLevel: place.priceLevel || "",
       priceRange: place.priceRange || null,
       servesVegetarianFood: place.servesVegetarianFood === true,
+      servesVeganFood: place.servesVeganFood === true,
       photo: place.photos?.[0] ? {
         name: place.photos[0].name || "",
         attributions: (place.photos[0].authorAttributions || []).map((author: any) => ({ displayName: author.displayName || "", uri: author.uri || "" })),
